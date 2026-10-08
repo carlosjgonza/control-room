@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control room</title>
+<link id="fav" rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Palette: deep-sea ground, stucco ink, canal accent. Status colours are
+     reserved for state and never used decoratively. */
+  :root {
+    --bg: #06090d;
+    --panel: #0c1218;
+    --panel-2: #111a22;
+    --line: rgba(216, 241, 243, .09);
+    --line-strong: rgba(216, 241, 243, .2);
+    --ink: #eeede4;
+    --ink-2: #bea989;
+    --ink-3: #8a9698;
+    --accent: #d8f1f3;
+    --ok: #78c2a4;
+    --warn: #e2b45c;
+    --bad: #e26f68;
+    --neutral: #8a9698;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans Condensed", "Avenir Next Condensed", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  /* An author `display` beats the UA sheet, so the panels below would stay laid
+     out with the attribute set. `hidden` has to win: the veil is full-window. */
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.35 var(--sans); -webkit-font-smoothing: antialiased;
+    display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .dim { color: var(--ink-3); }
+
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 18px 10px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .beacon { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(120, 194, 164, .18); }
+  .beacon.down { background: var(--bad); box-shadow: 0 0 0 3px rgba(226, 111, 104, .2); }
+  h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+  .repos { color: var(--ink-3); font-family: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { display: flex; align-items: center; gap: 12px; flex: none; }
+  #clock { color: var(--ink-2); font-size: 12px; }
+  .refresh {
+    appearance: none; border: 1px solid var(--line); background: transparent; color: var(--ink-3);
+    font: 500 11px var(--mono); padding: 4px 9px; border-radius: 999px; cursor: pointer; font-variant-numeric: tabular-nums;
+  }
+  .refresh:hover { border-color: var(--line-strong); color: var(--ink); }
+  .refresh:focus-visible, .row:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Inside the Electron shell the title bar is gone: leave room for the traffic
+     lights and let the header drag the window. */
+  .app .top { padding-left: 84px; -webkit-app-region: drag; }
+  .app .top .refresh { -webkit-app-region: no-drag; }
+  .app .boot .setup { -webkit-app-region: no-drag; }
+
+  .strip { display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 9px 18px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
+  .strip b { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); margin-right: 5px; }
+  .strip .live, .strip .live b { color: var(--accent); }
+  .strip .warn, .strip .warn b { color: var(--warn); }
+  .strip .bad, .strip .bad b { color: var(--bad); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; background: var(--line); gap: 1px; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); } }
+  .panel { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 18px 6px; }
+  h2 { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-2); }
+  .count { font: 11px var(--mono); color: var(--ink-3); }
+  .body { overflow: auto; min-height: 0; padding: 2px 8px 14px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  .sub { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); padding: 14px 10px 4px; }
+  .empty { color: var(--ink-3); padding: 10px; }
+
+  .row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: 10px; padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; }
+  .row:hover { background: var(--panel); }
+  .row.draft .title { color: var(--ink-3); font-weight: 400; }
+  .row.pr { cursor: pointer; }
+  .btn.sm { padding: 1px 7px; font-size: 10px; line-height: 16px; }
+  .btn.wait { color: var(--ink-3); border-color: var(--line); }
+  .btn.off { color: var(--ink-3); border-style: dashed; cursor: default; }
+  .icon { width: 15px; height: 15px; margin-top: 1px; flex: none; }
+  .title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .title .num { color: var(--ink-3); font-family: var(--mono); font-weight: 400; margin-right: 2px; }
+  .line2 { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 9px; color: var(--ink-3); font: 11px var(--mono); margin-top: 3px; }
+  .line2 > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip { display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--ink-2); font: 10px/16px var(--mono); }
+  .chip.label { border-color: transparent; background: rgba(190, 169, 137, .16); }
+  .step { color: var(--ink-2); font: 11px var(--mono); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font: 11px var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); white-space: nowrap; }
+  .right .big { font-size: 16px; color: var(--ink); line-height: 1.1; }
+  .state { display: inline-flex; align-items: center; gap: 4px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); } .live { color: var(--accent); } .neutral { color: var(--neutral); }
+
+  /* Runs: a wrapper that can hold the expanded details under the row. */
+  .run { border-radius: 6px; border: 1px solid transparent; }
+  .run.active { background: var(--panel); border-color: var(--line); margin-bottom: 6px; }
+  .run.open { background: var(--panel); border-color: var(--line); }
+  .run.hot { box-shadow: inset 3px 0 0 var(--bad); }
+  .run .row { cursor: pointer; }
+  .run .row:hover, .run.active .row:hover, .run.open .row:hover { background: var(--panel-2); }
+  .run.open .row { border-radius: 6px 6px 0 0; }
+
+  /* dot-line-dot: one dot per step of the job that is running */
+  .stepper { display: flex; align-items: center; margin-top: 8px; padding: 0 2px; }
+  .stepper .dt { display: block; flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ink-3); background: transparent; }
+  .stepper .dt.done { background: var(--ink-2); border-color: var(--ink-2); }
+  .stepper .dt.off { border-color: var(--line-strong); }
+  .stepper .dt.bad { background: var(--bad); border-color: var(--bad); }
+  .stepper .dt.live { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(216, 241, 243, .18); animation: pulse 1.4s ease-in-out infinite; }
+  .stepper .ln { flex: 1; height: 1.5px; min-width: 4px; background: var(--line-strong); }
+  .stepper .ln.on { background: var(--ink-2); }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 5px rgba(216, 241, 243, .05); } }
+
+  .details { padding: 4px 10px 10px 36px; font: 11px var(--mono); color: var(--ink-2); border-top: 1px solid var(--line); }
+  .job-h { display: flex; align-items: center; gap: 6px; color: var(--ink); padding: 6px 0 4px; }
+  .job-h .icon, .steps .icon { width: 12px; height: 12px; margin: 0; }
+  .steps { list-style: none; margin: 0 0 4px; padding: 0 0 0 5px; border-left: 1px solid var(--line); }
+  .steps li { display: flex; align-items: center; gap: 6px; padding: 2px 0 2px 7px; color: var(--ink-3); }
+  .steps li.done { color: var(--ink-2); } .steps li.live { color: var(--ink); } .steps li.bad { color: var(--bad); }
+  .steps .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .steps .du { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .log { margin: 8px 0 0; padding: 8px 10px; background: #030507; border: 1px solid var(--line); border-radius: 4px; color: var(--ink-2); font: 10.5px/1.45 var(--mono); max-height: 190px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+  .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .btn { appearance: none; display: inline-block; border: 1px solid var(--line-strong); background: transparent; color: var(--ink); font: 500 11px var(--mono); padding: 4px 9px; border-radius: 4px; cursor: pointer; }
+  .btn:hover { background: var(--panel-2); }
+  .btn.armed { border-color: var(--warn); color: var(--warn); }
+  .note { color: var(--ink-3); }
+  .note.bad { color: var(--bad); }
+
+  .spin { animation: spin 1.4s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin, .stepper .dt.live { animation: none; } }
+
+  /* First-load veil: in the markup so it is there at first paint, gone once the
+     first snapshot lands. Also shows when the server itself is unreachable. */
+  .boot { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(6, 9, 13, .72); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: opacity .35s ease; }
+  .boot.out { opacity: 0; pointer-events: none; -webkit-app-region: no-drag; }
+  .boot-arc { width: 40px; height: 40px; color: var(--accent); }
+  .boot-title { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .18em; color: var(--ink); }
+  .boot-sub { font: 11px var(--mono); color: var(--ink-3); text-align: center; max-width: 36em; padding: 0 20px; }
+  .app .boot { -webkit-app-region: drag; }
+
+  /* Setup: shown in the veil while gh is missing or logged out. */
+  .setup { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 34em; padding: 0 20px; text-align: center; user-select: text; }
+  .setup p { margin: 0; font: 12px/1.5 var(--sans); color: var(--ink-2); }
+  .setup code { display: block; padding: 7px 12px; background: #030507; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); font: 12px var(--mono); user-select: all; }
+  .setup a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .setup .detail { font: 10.5px var(--mono); color: var(--ink-3); }
+
+  /* Repo picker: a sheet over the board. */
+  .sheet { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-start; justify-content: center; padding: 56px 16px 16px; background: rgba(6, 9, 13, .6); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  .sheet-card { width: min(520px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5); }
+  .sheet-head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 16px 4px; }
+  .sheet .sub { padding: 10px 16px 4px; }
+  .pk-chosen { padding: 0 8px; max-height: 32vh; overflow: auto; scrollbar-width: thin; }
+  .pk-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ink); font: 12px var(--mono); text-align: left; }
+  .pk-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pk-row .dim { font-size: 10.5px; }
+  button.pk-row { cursor: pointer; }
+  button.pk-row:hover, button.pk-row:focus-visible { background: var(--panel-2); outline: none; }
+  .pk-x { appearance: none; border: 0; background: transparent; color: var(--ink-3); font: 14px/1 var(--mono); padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+  .pk-x:hover, .pk-x:focus-visible { color: var(--bad); background: var(--panel-2); outline: none; }
+  .pk-search { margin: 8px 16px 6px; padding: 7px 10px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 4px; color: var(--ink); font: 12px var(--mono); outline: none; }
+  .pk-search:focus { border-color: var(--accent); }
+  .pk-list { flex: 1; min-height: 60px; padding: 0 8px 6px; overflow: auto; scrollbar-width: thin; }
+  .pk-foot { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--line); }
+  .pk-foot .note { flex: 1; min-width: 0; font: 10.5px/1.4 var(--mono); }
+  .pk-foot .note code { color: var(--ink-2); word-break: break-all; user-select: all; }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .errors { padding: 8px 18px; border-top: 1px solid var(--line); color: var(--warn); font: 11px var(--mono); display: flex; flex-direction: column; gap: 2px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8.2l2 2 4-4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-run" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="27 14" stroke-linecap="round"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="brand">
+    <span class="beacon" id="beacon" title="Connection to the control-room server"></span>
+    <h1>Control room</h1>
+    <span class="repos" id="repoList"></span>
+  </div>
+  <div class="meta">
+    <span id="clock" class="mono"></span>
+    <button class="refresh" id="reposBtn" title="Choose which repos to watch">repos</button>
+    <button class="refresh" id="refreshBtn" title="Refresh now (r)">connecting</button>
+  </div>
+</header>
+
+<div class="strip" id="strip"></div>
+
+<main class="grid">
+  <section class="panel" aria-labelledby="h-actions">
+    <div class="panel-head"><h2 id="h-actions">Actions</h2><span class="count" id="runCount"></span></div>
+    <div class="body">
+      <div id="active"></div>
+      <div class="sub">Recent</div>
+      <div id="recent"></div>
+    </div>
+  </section>
+  <section class="panel" aria-labelledby="h-prs">
+    <div class="panel-head"><h2 id="h-prs">Open pull requests</h2><span class="count" id="prCount"></span></div>
+    <div class="body" id="prs"></div>
+  </section>
+</main>
+
+<div class="errors" id="errors" hidden></div>
+
+<div class="boot" id="boot" role="status" aria-live="polite">
+  <svg class="boot-arc spin" aria-hidden="true"><use href="#i-run"/></svg>
+  <div class="boot-title">Initializing</div>
+  <div class="boot-sub" id="bootSub">Connecting to the control-room server</div>
+  <div class="setup" id="setup" hidden></div>
+</div>
+
+<div class="sheet" id="picker" hidden role="dialog" aria-modal="true" aria-labelledby="pk-h">
+  <div class="sheet-card">
+    <div class="sheet-head"><h2 id="pk-h">Repos to watch</h2><span class="count" id="pkCount"></span></div>
+    <div class="pk-chosen" id="pkChosen"></div>
+    <input class="pk-search" id="pkSearch" type="search" placeholder="Search your repos, or type owner/name" autocomplete="off" spellcheck="false" aria-label="Find a repo to add">
+    <div class="pk-list" id="pkList" aria-label="Repos you can add"></div>
+    <div class="pk-foot">
+      <span class="note" id="pkNote"></span>
+      <button type="button" class="btn" id="pkCancel">Cancel</button>
+      <button type="button" class="btn primary" id="pkSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const ACTIVE = new Set(["queued", "in_progress", "waiting", "requested", "pending"]);
+  const BAD = new Set(["failure", "startup_failure", "timed_out"]);
+  const CONCLUSIONS = {
+    success: { key: "ok", label: "passed", icon: "check" },
+    failure: { key: "bad", label: "failed", icon: "x" },
+    startup_failure: { key: "bad", label: "failed to start", icon: "x" },
+    timed_out: { key: "bad", label: "timed out", icon: "x" },
+    cancelled: { key: "neutral", label: "cancelled", icon: "dash" },
+    skipped: { key: "neutral", label: "skipped", icon: "dash" },
+    action_required: { key: "warn", label: "needs action", icon: "queue" },
+    neutral: { key: "neutral", label: "neutral", icon: "dot" },
+  };
+  const REVIEW = {
+    APPROVED: { key: "ok", label: "approved", icon: "check" },
+    CHANGES_REQUESTED: { key: "bad", label: "changes requested", icon: "x" },
+    REVIEW_REQUIRED: { key: "warn", label: "needs review", icon: "dot" },
+  };
+  // Step and job states share one vocabulary: done / live / todo / bad / off.
+  const STEP_ICON = { done: "check", live: "run", todo: "dot", bad: "x", off: "dash" };
+  const STEP_COLOUR = { done: "ok", live: "live", todo: "neutral", bad: "bad", off: "neutral" };
+
+  let state = { repos: [], runs: [], prs: [], errors: [] };
+  let online = false;
+  let now = Date.now();
+  const expanded = new Set();   // run keys the user has opened
+  const details = new Map();    // run key -> { v, loading, jobs, log, error }
+  const notes = {};             // run key -> re-run outcome text
+  let armed = null, armedAt = 0; // re-run needs a second click within a few seconds
+
+  const runKey = (r) => `${r.repo}#${r.databaseId}`;
+  const runState = (r) => {
+    if (r.status === "in_progress") return { key: "live", label: "running", icon: "run" };
+    if (r.status !== "completed") return { key: "warn", label: r.status.replace("_", " "), icon: "queue" };
+    return CONCLUSIONS[r.conclusion] ?? { key: "neutral", label: r.conclusion || "done", icon: "dot" };
+  };
+  const stepKey = (s) => {
+    if (s.status === "in_progress") return "live";
+    if (s.status !== "completed") return "todo";
+    if (s.conclusion === "success") return "done";
+    if (s.conclusion === "failure" || s.conclusion === "timed_out") return "bad";
+    return "off";
+  };
+  const currentJob = (jobs) =>
+    jobs?.find((j) => j.status === "in_progress") ?? jobs?.find((j) => j.status !== "completed") ?? jobs?.at(-1) ?? null;
+
+  // Fold a PR's check rollup into one state. CheckRuns carry status/conclusion,
+  // commit statuses (Vercel) carry state; both end up in the same three buckets.
+  const checksState = (rollup) => {
+    if (!rollup?.length) return { key: "neutral", label: "no checks", icon: "dot" };
+    let failing = false, pending = false;
+    for (const c of rollup) {
+      const s = c.__typename === "StatusContext" ? c.state : c.status === "COMPLETED" ? c.conclusion : "PENDING";
+      if (["FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED", "CANCELLED"].includes(s)) failing = true;
+      else if (["PENDING", "EXPECTED", "QUEUED", "IN_PROGRESS", "WAITING", "REQUESTED"].includes(s)) pending = true;
+    }
+    if (failing) return { key: "bad", label: "checks failing", icon: "x" };
+    if (pending) return { key: "live", label: "checks running", icon: "run" };
+    return { key: "ok", label: "checks passing", icon: "check" };
+  };
+
+  const rel = (iso) => {
+    const s = Math.max(0, (now - Date.parse(iso)) / 1000);
+    if (s < 45) return "just now";
+    if (s < 3600) return `${Math.round(s / 60)}m ago`;
+    if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+    return `${Math.round(s / 86400)}d ago`;
+  };
+  const elapsed = (iso) => {
+    let s = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
+    const h = Math.floor(s / 3600); s %= 3600;
+    const m = Math.floor(s / 60); s %= 60;
+    return (h ? `${h}:${pad(m)}` : String(m)) + ":" + pad(s);
+  };
+  const fmtDur = (ms) => {
+    if (!(ms > 0)) return "";
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m ${pad(s % 60)}s`;
+    return `${Math.floor(s / 3600)}h ${pad(Math.floor((s % 3600) / 60))}m`;
+  };
+  const span = (a, b) => (a && b ? fmtDur(Date.parse(b) - Date.parse(a)) : "");
+  const abs = (iso) => new Date(iso).toLocaleString();
+  const svg = (name, key, label) =>
+    `<svg class="icon ${key}${name === "run" ? " spin" : ""}" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${label ? `<title>${esc(label)}</title>` : ""}<use href="#i-${name}"/></svg>`;
+
+  const stepper = (job) => {
+    const steps = job.steps ?? [];
+    if (!steps.length) return "";
+    const done = steps.filter((s) => s.status === "completed").length;
+    return `<div class="stepper" role="img" aria-label="${esc(job.name)}: ${done} of ${steps.length} steps done">` +
+      steps.map((s, i) =>
+        `${i ? `<i class="ln${steps[i - 1].status === "completed" ? " on" : ""}"></i>` : ""}<b class="dt ${stepKey(s)}" title="${esc(s.name)}"></b>`,
+      ).join("") + `</div>`;
+  };
+  const stepLine = (job) => {
+    const cur = job.steps?.find((s) => s.status === "in_progress");
+    if (cur) return `<div class="step">${esc(job.name)} &rsaquo; ${esc(cur.name)} <span class="dim">${cur.number}/${job.steps.length}</span></div>`;
+    return `<div class="step">${esc(job.name)} <span class="dim">${job.status === "queued" ? "waiting for a runner" : "starting"}</span></div>`;
+  };
+
+  const detailsPanel = (r) => {
+    const key = runKey(r);
+    const d = r.jobs ? { jobs: r.jobs, log: null } : details.get(key);
+    let body;
+    if (!d || d.loading) body = `<div class="dim" style="padding:6px 0">Loading steps</div>`;
+    else if (d.error) body = `<div class="bad" style="padding:6px 0">${esc(d.error)}</div>`;
+    else body = (d.jobs ?? []).map((j) => {
+      const k = stepKey(j);
+      return `<div class="job"><div class="job-h">${svg(STEP_ICON[k], STEP_COLOUR[k])}<span>${esc(j.name)}</span><span class="dim">${span(j.startedAt, j.completedAt)}</span></div>` +
+        `<ol class="steps">${(j.steps ?? []).map((s) => { const sk = stepKey(s); return `<li class="${sk}">${svg(STEP_ICON[sk], STEP_COLOUR[sk])}<span class="nm">${esc(s.name)}</span><span class="du">${span(s.startedAt, s.completedAt)}</span></li>`; }).join("")}</ol></div>`;
+    }).join("") + (d.log ? `<pre class="log">${esc(d.log)}</pre>` : "");
+    const rerunnable = r.status === "completed" && r.conclusion !== "success" && r.conclusion !== "skipped";
+    const isArmed = armed === key && now - armedAt < 6000;
+    const note = notes[key];
+    return `<div class="details">${body}<div class="actions">` +
+      `<a class="btn" href="${esc(r.url)}" target="_blank" rel="noreferrer">Open on GitHub &nearr;</a>` +
+      (rerunnable ? `<button type="button" class="btn rerun${isArmed ? " armed" : ""}" data-key="${esc(key)}" data-repo="${esc(r.repo)}" data-id="${r.databaseId}" title="Re-runs the same commit">${isArmed ? "Re-run this commit? Click again" : "Re-run"}</button>` : "") +
+      (note ? `<span class="note${note.bad ? " bad" : ""}">${esc(note.text)}</span>` : "") +
+      `</div></div>`;
+  };
+
+  const runRow = (r, active) => {
+    const st = runState(r);
+    const key = runKey(r);
+    const open = expanded.has(key);
+    const hot = !active && BAD.has(r.conclusion) && now - Date.parse(r.updatedAt) < 3600e3;
+    const since = r.startedAt || r.createdAt;
+    const job = active ? currentJob(r.jobs) : null;
+    const right = active
+      ? `<span class="big" data-since="${esc(since)}">${elapsed(since)}</span><span class="state ${st.key}">${esc(st.label)}</span>`
+      : `<span class="state ${st.key}">${esc(st.label)}</span><span title="${esc(abs(r.updatedAt))}"><span data-ago="${esc(r.updatedAt)}">${rel(r.updatedAt)}</span> &middot; ${span(since, r.updatedAt)}</span>`;
+    return `<div class="run${active ? " active" : ""}${hot ? " hot" : ""}${open ? " open" : ""}" data-key="${esc(key)}">
+      <div class="row" role="button" tabindex="0" aria-expanded="${open}">
+        ${svg(st.icon, st.key)}
+        <div>
+          <div class="title" title="${esc(r.displayTitle)}">${esc(r.displayTitle)}</div>
+          <div class="line2"><span class="chip">${esc(r.short)}</span>${r.workflowName !== r.displayTitle ? `<span>${esc(r.workflowName)}</span>` : ""}<span>${esc(r.event)}</span><span>${esc(r.headBranch)}</span>${r.attempt > 1 ? `<span>attempt ${r.attempt}</span>` : ""}</div>
+          ${job ? stepper(job) + stepLine(job) : ""}
+        </div>
+        <div class="right">${right}</div>
+      </div>
+      ${open ? detailsPanel(r) : ""}
+    </div>`;
+  };
+
+  const prRow = (p) => {
+    const ch = checksState(p.statusCheckRollup);
+    const rv = REVIEW[p.reviewDecision];
+    const mine = state.viewer && p.author?.login === state.viewer;
+    const labels = (p.labels ?? []).map((l) => `<span class="chip label">${esc(l.name)}</span>`).join("");
+    // Preview: the server resolves the deployment on click; the PR's preview
+    // check (a commit status like Vercel's, or a check run) already says
+    // whether it is ready. Which check that is comes from the repo's config.
+    let preview = "";
+    const cfg = state.repos.find((x) => x.repo === p.repo);
+    if (cfg?.preview) {
+      let re;
+      try { re = new RegExp(cfg.previewCheck || "vercel", "i"); } catch { re = /vercel/i; }
+      const check = p.statusCheckRollup?.find((c) => re.test(c.__typename === "StatusContext" ? c.context : c.name));
+      const st = !check ? undefined : check.__typename === "StatusContext" ? check.state : check.status === "COMPLETED" ? check.conclusion : "PENDING";
+      if (["FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE"].includes(st)) preview = `<span class="btn sm off" title="The preview could not be built">preview failed</span>`;
+      else preview = `<a class="btn sm${st === "SUCCESS" ? "" : " wait"}" href="/preview?repo=${encodeURIComponent(p.repo)}&number=${p.number}" target="_blank" rel="noreferrer" title="${st === "SUCCESS" ? "Open the preview deployment" : "The preview is still building; the link waits for it"}">Preview${st === "SUCCESS" ? " &nearr;" : " &hellip;"}</a>`;
+    }
+    return `<div class="row pr${p.isDraft ? " draft" : ""}" data-url="${esc(p.url)}" role="link" tabindex="0">
+      ${svg(ch.icon, ch.key, ch.label)}
+      <div>
+        <div class="title" title="${esc(p.title)}"><span class="num">#${p.number}</span><a href="${esc(p.url)}" target="_blank" rel="noreferrer">${esc(p.title)}</a></div>
+        <div class="line2"><span class="chip">${esc(p.short)}</span>${p.isDraft ? '<span class="chip">draft</span>' : ""}${labels}<span>${esc(p.author?.login)}${mine ? " (you)" : ""}</span><span>${esc(p.headRefName)}</span><span>+${p.additions} &minus;${p.deletions}</span></div>
+      </div>
+      <div class="right">${preview}${ch.key === "ok" ? "" : `<span class="state ${ch.key}">${esc(ch.label)}</span>`}${rv ? `<span class="state ${rv.key}">${esc(rv.label)}</span>` : ""}<span title="${esc(abs(p.updatedAt))}" data-ago="${esc(p.updatedAt)}">${rel(p.updatedAt)}</span></div>
+    </div>`;
+  };
+
+  const seg = (n, label, key) => `<span class="${n ? key : ""}"><b>${n}</b>${label}</span>`;
+
+  // Completed runs load their steps (and failed-log tail) the first time they
+  // are opened; the key includes updatedAt so a re-run fetches fresh.
+  async function ensureDetails(r) {
+    const key = runKey(r);
+    const have = details.get(key);
+    if (r.jobs || (have && have.v === r.updatedAt)) return;
+    details.set(key, { v: r.updatedAt, loading: true });
+    try {
+      const res = await fetch(`/api/run?repo=${encodeURIComponent(r.repo)}&id=${r.databaseId}&v=${encodeURIComponent(r.updatedAt)}`);
+      const out = await res.json();
+      details.set(key, out.error ? { v: r.updatedAt, error: out.error } : { v: r.updatedAt, jobs: out.jobs, log: out.log });
+    } catch (err) {
+      details.set(key, { v: r.updatedAt, error: err.message });
+    }
+    render();
+  }
+
+  function render() {
+    now = Date.now();
+    const runs = [...state.runs].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    const active = runs.filter((r) => ACTIVE.has(r.status));
+    const recent = runs.filter((r) => !ACTIVE.has(r.status)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    const prs = [...state.prs].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+
+    const running = active.filter((r) => r.status === "in_progress").length;
+    const queued = active.length - running;
+    const failedHour = recent.filter((r) => BAD.has(r.conclusion) && now - Date.parse(r.updatedAt) < 3600e3).length;
+    const needsReview = prs.filter((p) => !p.isDraft && p.reviewDecision === "REVIEW_REQUIRED").length;
+
+    for (const r of runs) if (expanded.has(runKey(r))) ensureDetails(r);
+
+    $("#repoList").textContent = state.repos.map((r) => r.short).join(" · ");
+    $("#strip").innerHTML =
+      seg(running, "running", "live") + seg(queued, "queued", "warn") + seg(failedHour, "failed in the last hour", "bad") +
+      seg(prs.length, "open PRs", "") + seg(needsReview, "awaiting review", "");
+
+    $("#active").innerHTML = active.length ? active.map((r) => runRow(r, true)).join("") : `<div class="empty">Nothing running</div>`;
+    $("#recent").innerHTML = recent.length ? recent.map((r) => runRow(r, false)).join("") : `<div class="empty">No recent runs</div>`;
+    $("#runCount").textContent = active.length ? `${active.length} active` : "";
+    $("#prs").innerHTML = prs.length ? prs.map(prRow).join("") : `<div class="empty">No open pull requests</div>`;
+    $("#prCount").textContent = prs.length ? `${prs.length}` : "";
+
+    const errs = $("#errors");
+    errs.hidden = !state.errors?.length;
+    errs.innerHTML = (state.errors ?? []).map((e) => `<span>${esc(e.repo)} · ${esc(e.source)}: ${esc(e.message)}</span>`).join("");
+
+    document.title = `${running ? `● ${running} running · ` : ""}${prs.length} PRs · Control room`;
+    const colour = failedHour ? "#e26f68" : running ? "#d8f1f3" : "#78c2a4";
+    $("#fav").href = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="${colour}"/></svg>`);
+  }
+
+  // Once a second: clock, live timers, relative ages, freshness. No refetch.
+  function tick() {
+    now = Date.now();
+    const d = new Date(now);
+    $("#clock").textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    for (const n of document.querySelectorAll("[data-since]")) n.textContent = elapsed(n.dataset.since);
+    for (const n of document.querySelectorAll("[data-ago]")) n.textContent = rel(n.dataset.ago);
+    const btn = $("#refreshBtn");
+    $("#beacon").classList.toggle("down", !online);
+    if (!online) btn.textContent = "server offline";
+    else if (state.refreshing || !state.fetchedAt) btn.textContent = "refreshing";
+    else btn.textContent = `updated ${Math.max(0, Math.round((now - Date.parse(state.fetchedAt)) / 1000))}s ago`;
+    if (armed && now - armedAt >= 6000) { armed = null; render(); }
+  }
+
+  // Until the first snapshot exists the board is empty and would read as "nothing
+  // running, no PRs", which is false. Hold the veil, and poll every second while
+  // waiting rather than the usual ten. If gh is missing or logged out, the veil
+  // turns into the setup screen and stays until the server sees gh working.
+  function boot() {
+    const veil = $("#boot");
+    const setup = state.setup?.status;
+    const blocked = online && (setup === "missing" || setup === "loggedOut");
+    if (blocked) {
+      veil.hidden = false;
+      veil.classList.remove("out");
+      renderSetup();
+    } else if (!$("#setup").hidden) {
+      $("#setup").hidden = true;
+      $("#boot .boot-arc").hidden = false;
+      $("#bootSub").hidden = false;
+      $(".boot-title").textContent = "Initializing";
+    }
+    if (veil.hidden || blocked) return;
+    if (state.fetchedAt) {
+      veil.classList.add("out");
+      setTimeout(() => (veil.hidden = true), 400);
+      // First run with nothing to watch: go straight to the picker.
+      if (!state.repos.length && !pickerOffered) {
+        pickerOffered = true;
+        openPicker();
+      }
+      return;
+    }
+    $("#bootSub").textContent = !online
+      ? "Waiting for the control-room server"
+      : state.repos.length
+        ? `Asking GitHub about ${state.repos.map((r) => r.short).join(", ")}`
+        : "Checking the GitHub CLI";
+  }
+
+  function renderSetup() {
+    const s = state.setup;
+    const box = $("#setup");
+    $("#boot .boot-arc").hidden = true;
+    $("#bootSub").hidden = true;
+    $(".boot-title").textContent = s.status === "missing" ? "Install the GitHub CLI" : "Log in to GitHub";
+    const html = s.status === "missing"
+      ? `<p>Control room reads everything through <a href="https://cli.github.com" target="_blank" rel="noreferrer">gh</a>, the GitHub CLI, so there is no token to paste here. Install it, then log in:</p>
+         <code>brew install gh</code><code>gh auth login</code>
+         <p class="detail">Looked for it at ${esc(s.gh)}. Set GH_PATH if it lives somewhere else.</p>`
+      : `<p>gh is installed but not logged in. Run this in a terminal and follow the prompts; whichever account you log in with is the one the board shows.</p>
+         <code>gh auth login</code>
+         <p class="detail">${esc(s.message)}</p>`;
+    const full = html + `<p class="detail">This screen checks again on its own.</p><button type="button" class="btn" id="setupRetry">Check now</button>`;
+    if (box.dataset.status !== s.status) {
+      box.innerHTML = full;
+      box.dataset.status = s.status;
+    }
+    box.hidden = false;
+  }
+
+  async function load() {
+    try {
+      const res = await fetch("/api/state", { cache: "no-store" });
+      state = await res.json();
+      online = true;
+    } catch {
+      online = false;
+    }
+    render();
+    tick();
+    boot();
+    if (!state.fetchedAt) setTimeout(load, 1000);
+  }
+
+  function refreshNow() {
+    fetch("/api/refresh").catch(() => undefined);
+    setTimeout(load, 2500);
+    setTimeout(load, 6000);
+  }
+
+  // ---- Repo picker -------------------------------------------------------
+  // Edits a draft of the tracked list; Save posts it and the server writes the
+  // config file, keeping any per-repo settings (preview, labels) already there.
+  let pickerOffered = false;
+  let draft = [];
+  let available = null;   // null: not loaded yet; [] after an error
+  let availableError = "";
+  const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
+
+  async function openPicker() {
+    draft = state.repos.map((r) => r.repo);
+    $("#pkSearch").value = "";
+    $("#picker").hidden = false;
+    renderPicker();
+    $("#pkSearch").focus();
+    if (available === null || availableError) {
+      available = null;
+      renderPicker();
+      try {
+        const res = await fetch("/api/repos/available", { cache: "no-store" });
+        const out = await res.json();
+        if (out.error) throw new Error(out.error);
+        available = out.repos;
+        availableError = "";
+      } catch (err) {
+        available = [];
+        availableError = err.message;
+      }
+      renderPicker();
+    }
+  }
+  const closePicker = () => {
+    $("#picker").hidden = true;
+    $("#reposBtn").focus();
+  };
+
+  function renderPicker() {
+    $("#pkCount").textContent = draft.length ? `${draft.length} watched` : "";
+    $("#pkChosen").innerHTML = draft.length
+      ? draft.map((n) => `<div class="pk-row"><span class="nm">${esc(n)}</span><button type="button" class="pk-x" data-remove="${esc(n)}" aria-label="Stop watching ${esc(n)}" title="Remove">&times;</button></div>`).join("")
+      : `<div class="empty">Nothing watched yet. Pick repos below.</div>`;
+
+    const q = $("#pkSearch").value.trim().toLowerCase();
+    let rows = "";
+    if (available === null) rows = `<div class="empty">Loading your repos</div>`;
+    else {
+      const matches = available.filter((r) => !draft.includes(r.repo) && (!q || r.repo.toLowerCase().includes(q))).slice(0, 60);
+      // Anything typed as owner/name can be added even if it is not in the
+      // list (another org's public repo, say); gh will say if it can't read it.
+      if (REPO_RE.test(q) && !draft.some((n) => n.toLowerCase() === q) && !matches.some((r) => r.repo.toLowerCase() === q))
+        rows += `<button type="button" class="pk-row" data-add="${esc($("#pkSearch").value.trim())}"><span class="nm">Add ${esc($("#pkSearch").value.trim())}</span></button>`;
+      rows += matches.map((r) => `<button type="button" class="pk-row" data-add="${esc(r.repo)}"><span class="nm">${esc(r.repo)}</span><span class="dim">${r.private ? "private · " : ""}${rel(r.pushedAt)}</span></button>`).join("");
+      if (!rows) rows = `<div class="empty">${availableError ? `Could not list your repos (${esc(availableError)}). Type owner/name to add one.` : q ? "No match. Type the full owner/name to add it anyway." : "Every repo you can see is already watched."}</div>`;
+    }
+    $("#pkList").innerHTML = rows;
+    $("#pkNote").innerHTML = `Preview links and labels live in <code>${esc(state.configPath ?? "repos.json")}</code>`;
+  }
+
+  async function savePicker() {
+    const btn = $("#pkSave");
+    btn.disabled = true;
+    btn.textContent = "Saving";
+    try {
+      const res = await fetch("/api/repos", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ repos: draft }),
+      });
+      const out = await res.json();
+      if (!out.ok) throw new Error(out.error || "Could not save");
+      state.repos = out.repos;
+      closePicker();
+      render();
+      setTimeout(load, 300);
+      setTimeout(load, 4000);
+    } catch (err) {
+      $("#pkNote").innerHTML = `<span class="bad">${esc(err.message)}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Save";
+    }
+  }
+
+  $("#reposBtn").addEventListener("click", openPicker);
+  $("#pkCancel").addEventListener("click", closePicker);
+  $("#pkSave").addEventListener("click", savePicker);
+  $("#pkSearch").addEventListener("input", renderPicker);
+  $("#pkSearch").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    $("#pkList [data-add]")?.click();
+  });
+  $("#picker").addEventListener("click", (e) => {
+    if (e.target === $("#picker")) return closePicker();
+    const add = e.target.closest("[data-add]");
+    const remove = e.target.closest("[data-remove]");
+    if (add) {
+      draft.push(add.dataset.add);
+      $("#pkSearch").value = "";
+      renderPicker();
+      $("#pkSearch").focus();
+    } else if (remove) {
+      draft = draft.filter((n) => n !== remove.dataset.remove);
+      renderPicker();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#picker").hidden) closePicker();
+  });
+  $("#boot").addEventListener("click", (e) => {
+    if (e.target.id === "setupRetry") refreshNow();
+  });
+
+  function toggle(key) {
+    if (expanded.has(key)) expanded.delete(key);
+    else expanded.add(key);
+    render();
+  }
+
+  // Two clicks within six seconds: the first arms the button, the second fires.
+  async function rerun(btn) {
+    const key = btn.dataset.key;
+    if (armed !== key || now - armedAt >= 6000) {
+      armed = key; armedAt = Date.now();
+      render();
+      return;
+    }
+    armed = null;
+    notes[key] = { text: "Asking GitHub" };
+    render();
+    try {
+      const res = await fetch("/api/rerun", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ repo: btn.dataset.repo, id: Number(btn.dataset.id) }),
+      });
+      const out = await res.json();
+      notes[key] = out.ok ? { text: "Queued. It will show up above as it starts." } : { text: out.error || "GitHub refused", bad: true };
+    } catch (err) {
+      notes[key] = { text: err.message, bad: true };
+    }
+    render();
+    setTimeout(load, 3000);
+    setTimeout(load, 8000);
+  }
+
+  for (const id of ["#active", "#recent"]) {
+    $(id).addEventListener("click", (e) => {
+      const btn = e.target.closest(".rerun");
+      if (btn) return rerun(btn);
+      if (e.target.closest("a, .details")) return;
+      const run = e.target.closest(".run");
+      if (run) toggle(run.dataset.key);
+    });
+    $(id).addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && e.target.matches(".row[role=button]")) {
+        e.preventDefault();
+        toggle(e.target.closest(".run").dataset.key);
+      }
+    });
+  }
+  // PR rows behave like links, but hold a real link (title, Preview) inside.
+  $("#prs").addEventListener("click", (e) => {
+    if (e.target.closest("a")) return;
+    const row = e.target.closest(".row.pr");
+    if (row) window.open(row.dataset.url, "_blank", "noreferrer");
+  });
+  $("#prs").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches(".row.pr")) window.open(e.target.dataset.url, "_blank", "noreferrer");
+  });
+  $("#refreshBtn").addEventListener("click", refreshNow);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "r" && !e.metaKey && !e.ctrlKey && !e.target.matches("input, textarea") && $("#picker").hidden) refreshNow();
+  });
+
+  if (navigator.userAgent.includes("Electron")) document.body.classList.add("app");
+
+  load();
+  setInterval(load, 10_000);
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>

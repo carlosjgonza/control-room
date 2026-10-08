@@ -1,0 +1,19 @@
+{
+  "name": "control-room",
+  "productName": "Control Room",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node server.mjs",
+    "app": "electron .",
+    "icon": "sh build/make-icon.sh",
+    "build:app": "electron-packager . 'Control Room' --platform=darwin --arch=$(uname -m | sed s/x86_64/x64/) --icon=build/icon.icns --out=dist --overwrite --app-bundle-id=com.daviduzago.control-room --ignore='^/dist' --ignore='^/build/icon\\.iconset'",
+    "install:app": "npm run build:app && rm -rf '/Applications/Control Room.app' && cp -R dist/Control\\ Room-darwin-*/Control\\ Room.app /Applications/ && rm -rf dist && echo 'Installed: /Applications/Control Room.app'"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^44.3.0"
+  }
+}

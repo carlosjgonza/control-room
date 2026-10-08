@@ -1,0 +1,21 @@
+{
+  "repos": [
+    {
+      "repo": "cli/cli",
+      "short": "gh-cli"
+    },
+    {
+      "repo": "your-org/your-site",
+      "short": "site",
+      "runs": 20,
+      "prs": 50,
+      "preview": {
+        "check": "vercel",
+        "paths": [
+          ["^docs/(.+)$", "/docs/$1"],
+          ["^blog/(.+)$", "/blog/$1"]
+        ]
+      }
+    }
+  ]
+}
