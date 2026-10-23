@@ -45,7 +45,7 @@ export function configDir() {
 const RUN_FIELDS =
   "databaseId,name,displayTitle,status,conclusion,event,headBranch,createdAt,startedAt,updatedAt,url,workflowName,attempt";
 const PR_FIELDS =
-  "number,title,author,headRefName,baseRefName,createdAt,updatedAt,url,isDraft,labels,statusCheckRollup,reviewDecision,additions,deletions,headRefOid";
+  "number,title,author,headRefName,baseRefName,createdAt,updatedAt,url,isDraft,labels,statusCheckRollup,reviewDecision,mergeStateStatus,additions,deletions,headRefOid,comments";
 const ACTIVE = new Set(["queued", "in_progress", "waiting", "requested", "pending"]);
 const REPO_NAME = /^[\w.-]+\/[\w.-]+$/;
 
@@ -71,6 +71,10 @@ async function checkGh() {
 // Jobs and steps of one run, trimmed to what the page draws.
 const trimStep = ({ number, name, status, conclusion, startedAt, completedAt }) =>
   ({ number, name, status, conclusion, startedAt, completedAt });
+// Comment bodies from bots can be huge (rollout plans, deploy tables); keep
+// enough to read in the board without shipping megabytes every refresh.
+const trimComment = (c) =>
+  ({ author: { login: c.author?.login }, body: String(c.body ?? "").slice(0, 4000), createdAt: c.createdAt, url: c.url, isMinimized: Boolean(c.isMinimized) });
 const trimJob = ({ name, status, conclusion, startedAt, completedAt, url, steps }) =>
   ({ name, status, conclusion, startedAt, completedAt, url, steps: (steps ?? []).map(trimStep) });
 async function runJobs(repo, id) {
@@ -180,7 +184,7 @@ async function fetchRepo({ repo, short, runs: runLimit = 12, prs: prLimit = 30 }
       }),
   );
   const tag = (x) => ({ ...x, repo, short: short ?? repo.split("/")[1] });
-  return { runs: runs.map(tag), prs: prs.map(tag), errors };
+  return { runs: runs.map(tag), prs: prs.map((p) => tag({ ...p, comments: (p.comments ?? []).map(trimComment) })), errors };
 }
 
 // Repos the logged-in account can reach, most recently pushed first, for the
@@ -371,6 +375,18 @@ export async function startServer({
       state.prs = state.prs.filter((p) => known(p.repo));
       refresh();
       return json(res, { ok: true, repos: state.repos });
+    }
+    // Resolve a PR's preview deployment URL as JSON, so the page can open the
+    // deployed URL itself instead of routing through a localhost redirect.
+    if (pathname === "/api/preview") {
+      const repo = q.get("repo"), number = Number(q.get("number"));
+      const pr = state.prs.find((p) => p.repo === repo && p.number === number);
+      if (!pr) return json(res, { error: "unknown pull request" }, 404);
+      try {
+        return json(res, await previewUrl(repo, pr.headRefOid));
+      } catch (err) {
+        return json(res, { error: firstLine(err) }, 502);
+      }
     }
     if (pathname === "/api/run") {
       const repo = q.get("repo"), id = q.get("id"), v = q.get("v") ?? "";

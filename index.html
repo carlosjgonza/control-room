@@ -69,12 +69,12 @@
   .strip .warn, .strip .warn b { color: var(--warn); }
   .strip .bad, .strip .bad b { color: var(--bad); }
 
-  .grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; background: var(--line); gap: 1px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); min-height: 0; background: var(--line); gap: 1px; }
   @media (max-width: 700px) { .grid { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); } }
   .panel { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
-  .panel-head { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 18px 6px; }
+  .panel-head { display: flex; align-items: center; gap: 12px; padding: 12px 18px 6px; }
   h2 { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-2); }
-  .count { font: 11px var(--mono); color: var(--ink-3); }
+  .count { margin-left: auto; font: 11px var(--mono); color: var(--ink-3); }
   .body { overflow: auto; min-height: 0; padding: 2px 8px 14px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   .sub { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); padding: 14px 10px 4px; }
   .empty { color: var(--ink-3); padding: 10px; }
@@ -98,6 +98,48 @@
   .right .big { font-size: 16px; color: var(--ink); line-height: 1.1; }
   .state { display: inline-flex; align-items: center; gap: 4px; }
   .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); } .live { color: var(--accent); } .neutral { color: var(--neutral); }
+
+  /* PR list: rows that expand in place. */
+  .pr { border-radius: 6px; }
+  .pr.open { background: var(--panel); border-color: var(--line); }
+  .pr .row { cursor: pointer; border-radius: 6px; }
+  .pr .row:hover { background: var(--panel-2); }
+  .pr.open .row { border-radius: 6px 6px 0 0; }
+  .pr.hot { box-shadow: inset 3px 0 0 var(--bad); }
+  .pr.hot.open { border-radius: 6px; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 4px; }
+  .filter-chip { appearance: none; border: 1px solid var(--line); background: transparent; color: var(--ink-3); font: 500 10px/16px var(--mono); padding: 1px 8px; border-radius: 999px; cursor: pointer; }
+  .filter-chip:hover { border-color: var(--line-strong); color: var(--ink); }
+  .filter-chip.on { border-color: var(--accent); color: var(--accent); }
+  .filter-chip b { font-weight: 500; margin-left: 4px; color: inherit; }
+
+  .comment { display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; gap: 4px 10px; padding: 7px 0 0; font: 11px/1.5 var(--mono); }
+  .comment .who { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .comment .body { color: var(--ink); max-height: 16em; overflow: auto; scrollbar-width: thin; }
+  .comment .body p { margin: 0 0 6px; white-space: pre-wrap; word-break: break-word; }
+  .comment .body p:last-child { margin-bottom: 0; }
+  .comment .body details { margin: 4px 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; background: #030507; }
+  .comment .body summary { cursor: pointer; color: var(--ink-2); }
+  .comment .body pre, .comment .body code { font: 10.5px/1.45 var(--mono); background: #030507; border-radius: 3px; }
+  .comment .body code { padding: 0 3px; }
+  .comment .body pre { padding: 6px 8px; overflow: auto; margin: 4px 0; }
+  .comment .body pre code { padding: 0; background: none; }
+  .comment .body a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+  .comment .body h1, .comment .body h2, .comment .body h3 { font: 600 12px/1.4 var(--sans); margin: 8px 0 4px; color: var(--ink); }
+  .comment .body ul, .comment .body ol { margin: 4px 0; padding-left: 18px; }
+  .comment .body li { margin: 2px 0; }
+  .comment .body blockquote { margin: 4px 0; padding: 2px 8px; border-left: 2px solid var(--line-strong); color: var(--ink-2); }
+  .comment .body hr { border: 0; border-top: 1px solid var(--line); margin: 8px 0; }
+  .comment .body table { border-collapse: collapse; margin: 4px 0; font-size: 10.5px; }
+  .comment .body th, .comment .body td { border: 1px solid var(--line); padding: 2px 6px; text-align: left; }
+  .comment .body th { color: var(--ink-2); }
+  .comment .reply { align-self: start; white-space: nowrap; }
+  .comment .reply a { color: var(--accent); }
+  .comment .reply a:hover { text-decoration: underline; }
+
+  .checks-note { color: var(--ink-3); font: 10.5px/1.5 var(--mono); padding-top: 4px; }
+  .merge-block { padding: 4px 0 0; }
 
   /* Runs: a wrapper that can hold the expanded details under the row. */
   .run { border-radius: 6px; border: 1px solid transparent; }
@@ -160,7 +202,7 @@
   .sheet-card { width: min(520px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5); }
   .sheet-head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 16px 4px; }
   .sheet .sub { padding: 10px 16px 4px; }
-  .pk-chosen { padding: 0 8px; max-height: 32vh; overflow: auto; scrollbar-width: thin; }
+  .pk-chosen { flex: none; padding: 0 8px; max-height: 32vh; overflow: auto; scrollbar-width: thin; }
   .pk-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ink); font: 12px var(--mono); text-align: left; }
   .pk-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pk-row .dim { font-size: 10.5px; }
@@ -207,6 +249,14 @@
 <div class="strip" id="strip"></div>
 
 <main class="grid">
+  <section class="panel" aria-labelledby="h-prs">
+    <div class="panel-head">
+      <h2 id="h-prs">Open pull requests</h2>
+      <div class="filters" id="prFilters"></div>
+      <span class="count" id="prCount"></span>
+    </div>
+    <div class="body pr-list" id="prs"></div>
+  </section>
   <section class="panel" aria-labelledby="h-actions">
     <div class="panel-head"><h2 id="h-actions">Actions</h2><span class="count" id="runCount"></span></div>
     <div class="body">
@@ -214,10 +264,6 @@
       <div class="sub">Recent</div>
       <div id="recent"></div>
     </div>
-  </section>
-  <section class="panel" aria-labelledby="h-prs">
-    <div class="panel-head"><h2 id="h-prs">Open pull requests</h2><span class="count" id="prCount"></span></div>
-    <div class="body" id="prs"></div>
   </section>
 </main>
 
@@ -394,11 +440,37 @@
     </div>`;
   };
 
+  // Merge-state reasons worth surfacing on a collapsed row. BLOCKED is the
+  // interesting one; the rest are variations of "waiting on checks/review".
+  const MERGE = {
+    BEHIND: { key: "warn", label: "behind main" },
+    BLOCKED: { key: "bad", label: "blocked" },
+    CLEAN: { key: "ok", label: "mergeable" },
+    DIRTY: { key: "bad", label: "conflicts" },
+    DRAFT: { key: "neutral", label: "draft" },
+    HAS_HOOKS: { key: "warn", label: "hooks pending" },
+    UNKNOWN: { key: "neutral", label: "" },
+    UNSTABLE: { key: "warn", label: "checks pending" },
+  };
+  const AUTO_AUTHORS = ["vercel", "github-actions", "cursor", "veniceai-semantic-owners-publisher"];
+  const relevantComment = (p) =>
+    p.comments?.findLast((c) => !AUTO_AUTHORS.includes(c.author?.login) && c.body?.trim()) ?? null;
+  const mergeBadge = (p) => {
+    if (p.isDraft) return "";
+    const m = MERGE[p.mergeStateStatus] ?? { key: "neutral", label: "" };
+    if (!m.label) return "";
+    return `<span class="state ${m.key}" title="${esc(p.mergeStateStatus ?? "")}">${esc(m.label)}</span>`;
+  };
+
   const prRow = (p) => {
     const ch = checksState(p.statusCheckRollup);
     const rv = REVIEW[p.reviewDecision];
     const mine = state.viewer && p.author?.login === state.viewer;
     const labels = (p.labels ?? []).map((l) => `<span class="chip label">${esc(l.name)}</span>`).join("");
+    const open = expanded.has(`pr:${p.repo}#${p.number}`);
+    const rc = relevantComment(p);
+    // Failure red rail: failing checks or unresolvable conflicts.
+    const hot = ch.key === "bad" || p.mergeStateStatus === "DIRTY";
     // Preview: the server resolves the deployment on click; the PR's preview
     // check (a commit status like Vercel's, or a check run) already says
     // whether it is ready. Which check that is comes from the repo's config.
@@ -410,15 +482,86 @@
       const check = p.statusCheckRollup?.find((c) => re.test(c.__typename === "StatusContext" ? c.context : c.name));
       const st = !check ? undefined : check.__typename === "StatusContext" ? check.state : check.status === "COMPLETED" ? check.conclusion : "PENDING";
       if (["FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE"].includes(st)) preview = `<span class="btn sm off" title="The preview could not be built">preview failed</span>`;
-      else preview = `<a class="btn sm${st === "SUCCESS" ? "" : " wait"}" href="/preview?repo=${encodeURIComponent(p.repo)}&number=${p.number}" target="_blank" rel="noreferrer" title="${st === "SUCCESS" ? "Open the preview deployment" : "The preview is still building; the link waits for it"}">Preview${st === "SUCCESS" ? " &nearr;" : " &hellip;"}</a>`;
+      else preview = `<button type="button" class="btn sm preview${st === "SUCCESS" ? "" : " wait"}" data-repo="${esc(p.repo)}" data-number="${p.number}" title="${st === "SUCCESS" ? "Open the preview deployment" : "The preview is still building; click to check"}">Preview${st === "SUCCESS" ? " &nearr;" : " &hellip;"}</button>`;
     }
-    return `<div class="row pr${p.isDraft ? " draft" : ""}" data-url="${esc(p.url)}" role="link" tabindex="0">
-      ${svg(ch.icon, ch.key, ch.label)}
-      <div>
-        <div class="title" title="${esc(p.title)}"><span class="num">#${p.number}</span><a href="${esc(p.url)}" target="_blank" rel="noreferrer">${esc(p.title)}</a></div>
-        <div class="line2"><span class="chip">${esc(p.short)}</span>${p.isDraft ? '<span class="chip">draft</span>' : ""}${labels}<span>${esc(p.author?.login)}${mine ? " (you)" : ""}</span><span>${esc(p.headRefName)}</span><span>+${p.additions} &minus;${p.deletions}</span></div>
+    return `<div class="pr${open ? " open" : ""}${hot ? " hot" : ""}" data-key="pr:${esc(p.repo)}#${p.number}">
+      <div class="row${p.isDraft ? " draft" : ""}" role="button" tabindex="0" aria-expanded="${open}">
+        ${svg(ch.icon, ch.key, ch.label)}
+        <div>
+          <div class="title" title="${esc(p.title)}"><span class="num">#${p.number}</span>${esc(p.title)}</div>
+          <div class="line2"><span class="chip">${esc(p.short)}</span>${p.isDraft ? '<span class="chip">draft</span>' : ""}${labels}<span>${esc(p.author?.login)}${mine ? " (you)" : ""}</span><span>${esc(p.headRefName)}</span><span>+${p.additions} &minus;${p.deletions}</span></div>
+          ${rc ? `<div class="line2"><span class="dim" title="${esc(rc.body)}">last comment: ${esc(rc.author?.login)} &middot; ${esc(rel(rc.createdAt))}</span></div>` : ""}
+        </div>
+        <div class="right">${preview}${mergeBadge(p)}${ch.key === "ok" ? "" : `<span class="state ${ch.key}">${esc(ch.label)}</span>`}${rv ? `<span class="state ${rv.key}">${esc(rv.label)}</span>` : ""}<span title="${esc(abs(p.updatedAt))}" data-ago="${esc(p.updatedAt)}">${rel(p.updatedAt)}</span></div>
       </div>
-      <div class="right">${preview}${ch.key === "ok" ? "" : `<span class="state ${ch.key}">${esc(ch.label)}</span>`}${rv ? `<span class="state ${rv.key}">${esc(rv.label)}</span>` : ""}<span title="${esc(abs(p.updatedAt))}" data-ago="${esc(p.updatedAt)}">${rel(p.updatedAt)}</span></div>
+      ${open ? prDetails(p) : ""}
+    </div>`;
+  };
+
+  // ---- Comment formatting -------------------------------------------------
+  // Minimal GitHub-flavoured markdown for comments: escape everything first,
+  // then rebuild a safe subset of tags from the escaped text. HTML that came
+  // in the body (like <details> or <!-- -->) stays visible as text.
+  const inline = (s) => s
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<i>$2</i>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, (_, text, url) =>
+      `<a href="${url}" target="_blank" rel="noreferrer">${text}</a>`)
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (_, pre, url) =>
+      `${pre}<a href="${url}" target="_blank" rel="noreferrer">${url.length > 48 ? url.slice(0, 45) + "…" : url}</a>`);
+  const md = (src) => {
+    // Bot comments wrap their payload in GitHub-rendered HTML (details/summary,
+    // hidden markers, anchors); on an escaped text board that is noise, so
+    // anchors become markdown links and the wrapper tags are stripped.
+    const cleaned = src
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<a\s+href="(https?:[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)")
+      .replace(/<\/?(details|summary|p|sub|sup|pre|a)(\s[^>]*)?>/gi, "");
+    const lines = esc(cleaned).split("\n");
+    const out = [];
+    let list = null, para = [];
+    const flush = () => { if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; } };
+    const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t) { flush(); closeList(); continue; }
+      const h = t.match(/^(#{1,3})\s+(.*)/);
+      if (h) { flush(); closeList(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue; }
+      if (/^(---+|\*\*\*+)$/.test(t)) { flush(); closeList(); out.push("<hr>"); continue; }
+      if (/^&gt;\s?/.test(t)) { flush(); closeList(); out.push(`<blockquote>${inline(t.replace(/^&gt;\s?/, ""))}</blockquote>`); continue; }
+      if (/^```/.test(t)) { flush(); closeList(); out.push(`<p class="dim mono">code block</p>`); continue; }
+      const li = t.match(/^[-*+]\s+(.*)/) ?? t.match(/^\d+\.\s+(.*)/);
+      if (li) {
+        flush();
+        const tag = /^\d+\./.test(t) ? "ol" : "ul";
+        if (list !== tag) { closeList(); out.push(`<${tag}>`); list = tag; }
+        out.push(`<li>${inline(li[1])}</li>`);
+        continue;
+      }
+      para.push(t);
+    }
+    flush(); closeList();
+    return out.join("") || `<p>${inline(esc(src))}</p>`;
+  };
+
+  // Expanded body under a PR row: checks rollup, human comments, merge state.
+  const prDetails = (p) => {
+    const ch = checksState(p.statusCheckRollup);
+    const failing = (p.statusCheckRollup ?? []).filter((c) => ["FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED", "CANCELLED"].includes(c.__typename === "StatusContext" ? c.state : c.status === "COMPLETED" ? c.conclusion : "PENDING"));
+    const pending = (p.statusCheckRollup ?? []).filter((c) => ["PENDING", "EXPECTED", "QUEUED", "IN_PROGRESS", "WAITING", "REQUESTED"].includes(c.__typename === "StatusContext" ? c.state : c.status === "COMPLETED" ? c.conclusion : "PENDING"));
+    const humans = (p.comments ?? []).filter((c) => c.body?.trim());
+    const mb = mergeBadge(p);
+    return `<div class="details">
+      <div class="merge-block">${mb || `<span class="state ok">mergeable</span>`} <span class="dim">${esc(p.baseRefName)} &larr; ${esc(p.headRefName)}</span></div>
+      ${failing.length ? `<div class="checks-note bad">${failing.map((c) => esc(c.__typename === "StatusContext" ? c.context : c.name)).join(", ")} failing</div>` : ""}
+      ${pending.length ? `<div class="checks-note live">${pending.map((c) => esc(c.__typename === "StatusContext" ? c.context : c.name)).join(", ")} running</div>` : ""}
+      ${!humans.length ? `<div class="checks-note">No comments</div>` : `<div class="sub" style="padding-left:0">Comments</div>` + humans.map((c) =>
+        `<div class="comment"><span class="who" title="${esc(c.createdAt)}">${esc(c.author?.login)} · ${rel(c.createdAt)}</span><div class="body">${md(c.body)}</div><span class="reply"><a href="${esc(c.url)}" target="_blank" rel="noreferrer">reply &nearr;</a></span></div>`).join("")}
+      <div class="actions">
+        <a class="btn" href="${esc(p.url)}" target="_blank" rel="noreferrer">Open on GitHub &nearr;</a>
+        ${ch.key === "bad" ? `<span class="note bad">Checks failing</span>` : ""}
+      </div>
     </div>`;
   };
 
@@ -443,28 +586,40 @@
 
   function render() {
     now = Date.now();
-    const runs = [...state.runs].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    // The repo/mine pills scope the whole board, not just the PR list: the
+    // Actions panel follows. A run counts as "mine" when its branch carries
+    // one of my open PRs in the same repo.
+    const mineBranches = new Set(
+      mineOnly && state.viewer
+        ? state.prs.filter((p) => p.author?.login === state.viewer).map((p) => `${p.repo}#${p.headRefName}`)
+        : [],
+    );
+    const runs = [...state.runs]
+      .filter((r) => (!repoFilter || r.repo === repoFilter) && (!mineOnly || mineBranches.has(`${r.repo}#${r.headBranch}`)))
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     const active = runs.filter((r) => ACTIVE.has(r.status));
     const recent = runs.filter((r) => !ACTIVE.has(r.status)).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     const prs = [...state.prs].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    const shown = prs.filter((p) => (!repoFilter || p.repo === repoFilter) && (!mineOnly || p.author?.login === state.viewer));
 
     const running = active.filter((r) => r.status === "in_progress").length;
     const queued = active.length - running;
     const failedHour = recent.filter((r) => BAD.has(r.conclusion) && now - Date.parse(r.updatedAt) < 3600e3).length;
-    const needsReview = prs.filter((p) => !p.isDraft && p.reviewDecision === "REVIEW_REQUIRED").length;
+    const needsReview = shown.filter((p) => !p.isDraft && p.reviewDecision === "REVIEW_REQUIRED").length;
 
     for (const r of runs) if (expanded.has(runKey(r))) ensureDetails(r);
 
     $("#repoList").textContent = state.repos.map((r) => r.short).join(" · ");
     $("#strip").innerHTML =
       seg(running, "running", "live") + seg(queued, "queued", "warn") + seg(failedHour, "failed in the last hour", "bad") +
-      seg(prs.length, "open PRs", "") + seg(needsReview, "awaiting review", "");
+      seg(shown.length, "open PRs", "") + seg(needsReview, "awaiting review", "");
 
     $("#active").innerHTML = active.length ? active.map((r) => runRow(r, true)).join("") : `<div class="empty">Nothing running</div>`;
     $("#recent").innerHTML = recent.length ? recent.map((r) => runRow(r, false)).join("") : `<div class="empty">No recent runs</div>`;
     $("#runCount").textContent = active.length ? `${active.length} active` : "";
-    $("#prs").innerHTML = prs.length ? prs.map(prRow).join("") : `<div class="empty">No open pull requests</div>`;
-    $("#prCount").textContent = prs.length ? `${prs.length}` : "";
+    $("#prs").innerHTML = shown.length ? shown.map(prRow).join("") : `<div class="empty">${repoFilter ? `No open PRs in ${esc(repoFilter)}` : "No open pull requests"}</div>`;
+    $("#prCount").textContent = `${shown.length}${repoFilter && shown.length !== prs.length ? ` / ${prs.length}` : ""}`;
+    renderFilters(prs);
 
     const errs = $("#errors");
     errs.hidden = !state.errors?.length;
@@ -474,6 +629,21 @@
     const colour = failedHour ? "#e26f68" : running ? "#d8f1f3" : "#78c2a4";
     $("#fav").href = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="${colour}"/></svg>`);
   }
+
+  // ---- Repo filter --------------------------------------------------------
+  // Persisted so the board reopens on the same view without re-picking.
+  let repoFilter = localStorage.getItem("repoFilter") ?? "";
+  let mineOnly = localStorage.getItem("mineOnly") === "1";
+  const renderFilters = (prs) => {
+    if (!state.repos.length) { $("#prFilters").innerHTML = ""; return; }
+    const counts = new Map(state.repos.map((r) => [r.repo, 0]));
+    for (const p of prs) counts.set(p.repo, (counts.get(p.repo) ?? 0) + 1);
+    const mineCount = state.viewer ? prs.filter((p) => p.author?.login === state.viewer).length : 0;
+    $("#prFilters").innerHTML =
+      `<button type="button" class="filter-chip${mineOnly ? " on" : ""}" data-mine="1" title="Only pull requests you opened">mine<b>${mineCount}</b></button>` +
+      state.repos.map((r) =>
+        `<button type="button" class="filter-chip${repoFilter === r.repo ? " on" : ""}" data-filter="${esc(r.repo)}" title="${esc(r.repo)}">${esc(r.short)}<b>${counts.get(r.repo) ?? 0}</b></button>`).join("");
+  };
 
   // Once a second: clock, live timers, relative ages, freshness. No refetch.
   function tick() {
@@ -726,14 +896,50 @@
       }
     });
   }
-  // PR rows behave like links, but hold a real link (title, Preview) inside.
+  // Preview resolves the PR's deployment through the server and opens the
+  // deployed URL itself; a localhost redirect would 404 outside this machine.
+  async function openPreview(btn) {
+    btn.disabled = true;
+    const label = btn.innerHTML;
+    btn.innerHTML = "&hellip;";
+    try {
+      const res = await fetch(`/api/preview?repo=${encodeURIComponent(btn.dataset.repo)}&number=${btn.dataset.number}`);
+      const out = await res.json();
+      if (out.url) window.open(out.url, "_blank", "noreferrer");
+      else if (out.pending) btn.innerHTML = "still building";
+      else if (out.failed) btn.innerHTML = "build failed";
+      else btn.innerHTML = "no deployment";
+    } catch (err) {
+      btn.innerHTML = "no preview";
+    } finally {
+      setTimeout(() => { btn.disabled = false; btn.innerHTML = label; }, 2500);
+    }
+  }
+
+  // Filter chips live in the panel header, outside #prs.
+  $("#prFilters").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-filter], [data-mine]");
+    if (!chip) return;
+    if (chip.dataset.mine) mineOnly = !mineOnly;
+    else repoFilter = repoFilter === chip.dataset.filter ? "" : chip.dataset.filter;
+    localStorage.setItem("repoFilter", repoFilter);
+    localStorage.setItem("mineOnly", mineOnly ? "1" : "0");
+    render();
+  });
+  // PR rows expand in place; links inside (title, Preview, reply) still open
+  // on GitHub or the preview interstitial.
   $("#prs").addEventListener("click", (e) => {
-    if (e.target.closest("a")) return;
-    const row = e.target.closest(".row.pr");
-    if (row) window.open(row.dataset.url, "_blank", "noreferrer");
+    const previewBtn = e.target.closest(".preview");
+    if (previewBtn) return openPreview(previewBtn);
+    if (e.target.closest("a, .comment .body")) return;
+    const pr = e.target.closest(".pr");
+    if (pr) toggle(pr.dataset.key);
   });
   $("#prs").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && e.target.matches(".row.pr")) window.open(e.target.dataset.url, "_blank", "noreferrer");
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches(".row[role=button]")) {
+      e.preventDefault();
+      toggle(e.target.closest(".pr").dataset.key);
+    }
   });
   $("#refreshBtn").addEventListener("click", refreshNow);
   document.addEventListener("keydown", (e) => {
